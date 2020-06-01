@@ -27,6 +27,8 @@ import socket
 import json
 import cv2
 
+import numpy as np
+
 import logging as log
 import paho.mqtt.client as mqtt
 
@@ -39,6 +41,16 @@ IPADDRESS = socket.gethostbyname(HOSTNAME)
 MQTT_HOST = IPADDRESS
 MQTT_PORT = 3001
 MQTT_KEEPALIVE_INTERVAL = 60
+
+# DEBUG
+# Get correct Video Codec
+if sys.platform == "linux" or sys.platform == "linux2":
+    CODEC = 0x00000021
+elif sys.platform == "darwin":
+    CODEC = cv2.VideoWriter_fourcc('M','J','P','G')
+else:
+    print("Unsupported OS.")
+    exit(1)
 
 
 def build_argparser():
@@ -74,6 +86,24 @@ def connect_mqtt():
 
     return client
 
+def draw_boxes(frame, result, args, width, height):
+    '''
+    Draw bounding boxes onto the frame.
+    '''
+    # The net outputs blob with shape: [N, 5], where N is the number of detected bounding boxes. For each detection, the description has the format: [x_min, y_min, x_max, y_max, conf]
+    bboxes = np.reshape(result, (-1, 5)).tolist()
+    # print(len(bboxes))
+
+    for bbox in bboxes:
+        conf = bbox[4]
+        if conf >= args.prob_threshold:
+            xmin = int(bbox[0] * width)
+            ymin = int(bbox[1] * height)
+            xmax = int(bbox[2] * width)
+            ymax = int(bbox[3] * height)
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 0, 255), 1)
+            print(f"Drew detection")
+    return frame
 
 def infer_on_stream(args, client):
     """
@@ -89,21 +119,55 @@ def infer_on_stream(args, client):
     # Set Probability threshold for detections
     prob_threshold = args.prob_threshold
 
-    ### TODO: Load the model through `infer_network` ###
+    #Load the model through `infer_network`
+    infer_network.load_model(args.model, device = args.device)
 
-    ### TODO: Handle the input stream ###
+    #Handle the input stream
+    cap = cv2.VideoCapture(args.input)
+    cap.open(args.input) # TODO check why input is needed again here
 
-    ### TODO: Loop until stream is over ###
+    # DEBUG
+    # Grab the shape of the input 
+    width = int(cap.get(3))
+    height = int(cap.get(4))
+    # Create a video writer for the output video
+    # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
+    # on Mac, and `0x00000021` on Linux
+    out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), 30, (width,height))
 
-        ### TODO: Read from the video capture ###
+    # TODO what to do when using a still image or a webcam?
 
-        ### TODO: Pre-process the image as needed ###
+    #Loop until stream is over
+    while cap.isOpened():
+        #Read from the video capture
+        flag, frame = cap.read()
+        if not flag:
+            break
+        key_pressed = cv2.waitKey(60)
 
-        ### TODO: Start asynchronous inference for specified request ###
+        #Pre-process the image as needed
+        net_input_shape = infer_network.get_input_shape()
+        p_frame = cv2.resize(frame, (net_input_shape[3], net_input_shape[2]))
+        p_frame = p_frame.transpose((2,0,1))
+        p_frame = p_frame.reshape(1, *p_frame.shape)
+        # TODO put this in the Network class
+        # TODO try padding instead of resize
 
-        ### TODO: Wait for the result ###
+        #Start asynchronous inference for specified request
+        infer_network.async_inference(p_frame)
+        # TODO: see if I can grab another image while this one is getting processed
 
-            ### TODO: Get the results of the inference request ###
+        # Wait for the result
+        if infer_network.wait() == 0:
+            # Get the results of the inference request
+            result = infer_network.get_output()
+            # print(result)
+
+            # DEBUG:
+            # Update the frame to include detected bounding boxes
+            frame = draw_boxes(frame, result, args, width, height)
+            # Write out the frame
+            out.write(frame)
 
             ### TODO: Extract any desired stats from the results ###
 
@@ -116,6 +180,15 @@ def infer_on_stream(args, client):
 
         ### TODO: Write an output image if `single_image_mode` ###
 
+        # Break if escape key pressed
+        if key_pressed == 27:
+            break
+
+    # Release the out writer, capture, and destroy any OpenCV windows
+    out.release()
+    cap.release()
+    cv2.destroyAllWindows()
+
 
 def main():
     """
@@ -126,7 +199,8 @@ def main():
     # Grab command line args
     args = build_argparser().parse_args()
     # Connect to the MQTT server
-    client = connect_mqtt()
+    # client = connect_mqtt()
+    client = None
     # Perform inference on the input stream
     infer_on_stream(args, client)
 

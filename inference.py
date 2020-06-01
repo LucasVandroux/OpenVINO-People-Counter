@@ -60,12 +60,13 @@ class Network:
         self.network = IENetwork(model=model_xml, weights=model_bin)
         
         # Check for supported layers
-        supported_layers = plugin.query_network(network=self.network, device_name=device)
+        supported_layers = self.plugin.query_network(network=self.network, device_name=device)
         unsupported_layers = [l for l in self.network.layers.keys() if l not in supported_layers]
         if len(unsupported_layers) != 0:
             sys.exit(f"Unsupported layers found: {unsupported_layers}.")
 
         # No need of CPU extension with the 2020.3 version of OpenVINO
+        # plugin.add_extension(extension_path=cpu_ext, device_name="CPU")
 
         # Load the IENetwork into the plugin
         self.exec_network = self.plugin.load_network(self.network, device)

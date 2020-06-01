@@ -133,3 +133,4 @@ dmypy.json
 data/
 experiments/
 models/
+out.mp4
