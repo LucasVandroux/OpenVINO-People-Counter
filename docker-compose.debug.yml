@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  openvino-people-counter:
+    image: openvino-people-counter
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3000
