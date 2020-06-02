@@ -27,6 +27,9 @@ import sys
 import logging as log
 from openvino.inference_engine import IENetwork, IECore
 
+from utils import BoundingBox
+import numpy as np
+
 
 class Network:
     """
@@ -99,3 +102,36 @@ class Network:
         """ Returns a list of the results for the output layer of the network.
         """
         return self.exec_network.requests[0].outputs[self.output_blob]
+
+    def postprocess_output(self, network_output, width, height, prob_threshold = 0.5):
+        """ Post-process the output of the network
+
+        Args:
+            network_output: direct output of the network after inference
+            width (int): width of the input frame
+            height (int): height of the input frame
+            prob_threshold (float: 0.5): probability threshold for detections filtering
+
+        Returns:
+            list_detections (list[(x: int, y:int, w:int, h:int)]): list of bounding boxes of the 
+                detected objects. A bounding boxe is a tuple (x, y, w, h) where (x,y) are the   
+                coordinates of the top-left corner of the bounding box and w its width and h its 
+                 height in pixels.
+        """
+        list_detections = []
+        # The net outputs a blob with shape: [1, 1, N, 7], where N is the number of detected bounding boxes. For each detection, the description has the format: [image_id, label, conf, x_min, y_min, x_max, y_max]
+        bboxes = np.reshape(network_output, (-1, 7)).tolist()
+
+        for bbox in bboxes:
+            conf = bbox[2]
+            if conf >= prob_threshold:
+                xmin = int(bbox[3] * width)
+                ymin = int(bbox[4] * height)
+                xmax = int(bbox[5] * width)
+                ymax = int(bbox[6] * height)
+
+                list_detections.append(BoundingBox(xmin, ymin, (xmax - xmin), (ymax - ymin)))
+
+        return list_detections
+
+

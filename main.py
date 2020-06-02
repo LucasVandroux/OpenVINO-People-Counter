@@ -34,6 +34,7 @@ import paho.mqtt.client as mqtt
 
 from argparse import ArgumentParser
 from inference import Network
+from utils import PedestrianTracker, updatePedestrians
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
@@ -102,8 +103,6 @@ def draw_boxes(frame, result, args, width, height):
             xmax = int(bbox[5] * width)
             ymax = int(bbox[6] * height)
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 0, 255), 1)
-            print(f"Drew detection")
-            # cv2.rectangle(frame, (0, 0), (int(width/2), int(height/2)), (0, 255, 0), 1)
     return frame
 
 def infer_on_stream(args, client):
@@ -135,10 +134,11 @@ def infer_on_stream(args, client):
     cap = cv2.VideoCapture(args.input)
     cap.open(args.input) # TODO check why input is needed again here
 
-    # DEBUG
     # Grab the shape of the input 
     width = int(cap.get(3))
     height = int(cap.get(4))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
     if not image_flag:
         # Create a video writer for the output video
         # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
@@ -146,6 +146,10 @@ def infer_on_stream(args, client):
         out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), 30, (width,height))
     else:
         out = None
+
+    # Initialize the list of tracked vehicle
+    list_tracked_pedestrians = []
+    set_id_pedestrians = set()
 
     #Loop until stream is over
     while cap.isOpened():
@@ -171,11 +175,28 @@ def infer_on_stream(args, client):
         if infer_network.wait() == 0:
             # Get the results of the inference request
             result = infer_network.get_output()
-            # print(result)
 
-            # DEBUG:
             # Update the frame to include detected bounding boxes
-            frame = draw_boxes(frame, result, args, width, height)
+            # frame = draw_boxes(frame, result, args, width, height)
+
+            # Detect the objects in the new frame
+            list_detections = infer_network.postprocess_output(result, width, height, args.prob_threshold)
+
+            # Update the position of the tracked pedestrians
+            list_tracked_pedestrians, list_detections = updatePedestrians(list_tracked_pedestrians, list_detections)        
+
+            # TODO ignore the detections that are only 3 frames young
+            # TODO get min iou changeable in the tracker    
+
+            # Add the remaining detections as new tracked pedestrians
+            for detection in list_detections:
+                x, y, w, h = detection
+                list_tracked_pedestrians.append(PedestrianTracker(x, y, w, h))
+
+            # Draw all the tracked vehicles in the current frame
+            for pedestrian in list_tracked_pedestrians:
+                pedestrian.drawOnFrame(frame)
+
             # Write out the frame
             if image_flag:
                 cv2.imwrite('output_image.jpg', frame)
@@ -183,11 +204,19 @@ def infer_on_stream(args, client):
                 out.write(frame)
 
             ### TODO: Extract any desired stats from the results ###
+            # Update the list of total pedestrians 
+            set_id_pedestrians = set_id_pedestrians.union(set([p.id for p in list_tracked_pedestrians]))
+            
 
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
+            current_cout = len(list_tracked_pedestrians)
+            total_count = len(set_id_pedestrians)
             ### Topic "person/duration": key of "duration" ###
+            duration = [len(p.list_centroids) * 1/fps for p in list_tracked_pedestrians]
+
+            print(current_cout, total_count, duration)
 
         ### TODO: Send the frame to the FFMPEG server ###
 
