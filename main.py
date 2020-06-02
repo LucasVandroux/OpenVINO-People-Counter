@@ -90,19 +90,20 @@ def draw_boxes(frame, result, args, width, height):
     '''
     Draw bounding boxes onto the frame.
     '''
-    # The net outputs blob with shape: [N, 5], where N is the number of detected bounding boxes. For each detection, the description has the format: [x_min, y_min, x_max, y_max, conf]
-    bboxes = np.reshape(result, (-1, 5)).tolist()
+    # The net outputs a blob with shape: [1, 1, N, 7], where N is the number of detected bounding boxes. For each detection, the description has the format: [image_id, label, conf, x_min, y_min, x_max, y_max]
+    bboxes = np.reshape(result, (-1, 7)).tolist()
     # print(len(bboxes))
 
     for bbox in bboxes:
-        conf = bbox[4]
+        conf = bbox[2]
         if conf >= args.prob_threshold:
-            xmin = int(bbox[0] * width)
-            ymin = int(bbox[1] * height)
-            xmax = int(bbox[2] * width)
-            ymax = int(bbox[3] * height)
+            xmin = int(bbox[3] * width)
+            ymin = int(bbox[4] * height)
+            xmax = int(bbox[5] * width)
+            ymax = int(bbox[6] * height)
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 0, 255), 1)
             print(f"Drew detection")
+            # cv2.rectangle(frame, (0, 0), (int(width/2), int(height/2)), (0, 255, 0), 1)
     return frame
 
 def infer_on_stream(args, client):
