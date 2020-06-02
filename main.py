@@ -122,6 +122,14 @@ def infer_on_stream(args, client):
     #Load the model through `infer_network`
     infer_network.load_model(args.model, device = args.device)
 
+    # Create a flag for single images
+    image_flag = False
+    # Check if the input is a webcam
+    if args.input == 'CAM':
+        args.input = 0
+    elif args.input.endswith(('.jpg', '.bmp', '.png')):
+        image_flag = True
+
     #Handle the input stream
     cap = cv2.VideoCapture(args.input)
     cap.open(args.input) # TODO check why input is needed again here
@@ -130,12 +138,13 @@ def infer_on_stream(args, client):
     # Grab the shape of the input 
     width = int(cap.get(3))
     height = int(cap.get(4))
-    # Create a video writer for the output video
-    # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
-    # on Mac, and `0x00000021` on Linux
-    out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), 30, (width,height))
-
-    # TODO what to do when using a still image or a webcam?
+    if not image_flag:
+        # Create a video writer for the output video
+        # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
+        # on Mac, and `0x00000021` on Linux
+        out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), 30, (width,height))
+    else:
+        out = None
 
     #Loop until stream is over
     while cap.isOpened():
@@ -167,7 +176,10 @@ def infer_on_stream(args, client):
             # Update the frame to include detected bounding boxes
             frame = draw_boxes(frame, result, args, width, height)
             # Write out the frame
-            out.write(frame)
+            if image_flag:
+                cv2.imwrite('output_image.jpg', frame)
+            else:
+                out.write(frame)
 
             ### TODO: Extract any desired stats from the results ###
 
@@ -185,7 +197,8 @@ def infer_on_stream(args, client):
             break
 
     # Release the out writer, capture, and destroy any OpenCV windows
-    out.release()
+    if not image_flag:
+        out.release()
     cap.release()
     cv2.destroyAllWindows()
 
