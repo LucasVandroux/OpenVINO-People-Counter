@@ -82,8 +82,9 @@ def build_argparser():
 
 
 def connect_mqtt():
-    ### TODO: Connect to the MQTT client ###
-    client = None
+    # Connect to the MQTT server
+    client = mqtt.Client()
+    client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL)
 
     return client
 
@@ -219,7 +220,10 @@ def infer_on_stream(args, client):
             duration = [len(p.list_centroids) * 1/fps for p in list_tracked_pedestrians]
 
             # Add , end='r'
-            print(current_cout, total_count, duration)
+            # print(current_cout, total_count, duration)
+
+            client.publish("person", json.dumps({"count": current_cout, "total":total_count}))
+            client.publish("person/duration", json.dumps({"duration": duration}))
 
             # Write out the frame
             if image_flag:
@@ -252,8 +256,8 @@ def main():
     # Grab command line args
     args = build_argparser().parse_args()
     # Connect to the MQTT server
-    # client = connect_mqtt()
-    client = None
+    client = connect_mqtt()
+
     # Perform inference on the input stream
     infer_on_stream(args, client)
 
