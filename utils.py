@@ -143,9 +143,11 @@ def updateTrackers(list_trackers, list_detections, num_frames_keep_lost_tracker:
             new boudning box or that should still be kept.
         list_detections (list[(x: int, y:int, w:int, h:int)]): list of bounding boxes that haven't 
             been matched to an tracker.
+        list_trackers_to_remove (list[Tracker]): list of Tracker that are being removed.
     """
     # Initialize the list to keep track of the tracker that have been updated
     list_trackers_to_keep = []
+    list_trackers_to_remove = []
     
     # If there are no detection then there is nothing to track
     if not list_detections:
@@ -206,5 +208,9 @@ def updateTrackers(list_trackers, list_detections, num_frames_keep_lost_tracker:
             list_trackers_lost_to_keep = [tracker for tracker in list_trackers_lost if tracker.isLost() <= num_frames_keep_lost_tracker]
             # Add lost trackers to keep to the final list of trackers
             list_trackers_to_keep += list_trackers_lost_to_keep
+            
+    # Create list of tracker that are going to be removed
+    list_trackers_to_remove = [tracker for tracker in list_trackers if tracker.isLost() > num_frames_keep_lost_tracker]
 
-    return list_trackers_to_keep, list_detections
+    print(len(list_trackers), len(list_trackers_to_keep), len(list_trackers_to_remove))
+    return list_trackers_to_keep, list_detections, list_trackers_to_remove

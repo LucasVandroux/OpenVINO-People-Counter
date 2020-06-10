@@ -28,6 +28,7 @@ import json
 import cv2
 
 import numpy as np
+from statistics import mean 
 
 import logging as log
 import paho.mqtt.client as mqtt
@@ -133,9 +134,9 @@ def infer_on_stream(args, client):
 
     #Handle the input stream
     cap = cv2.VideoCapture(args.input)
-    cap.open(args.input) # TODO check why input is needed again here
+    cap.open(args.input)
 
-    # Grab the shape of the input 
+    # Grab the shape of the input and the frame rate
     width = int(cap.get(3))
     height = int(cap.get(4))
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -144,7 +145,7 @@ def infer_on_stream(args, client):
         # Create a video writer for the output video
         # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
         # on Mac, and `0x00000021` on Linux
-        out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), fps, (width,height))
+        out = cv2.VideoWriter('out.mp4', CODEC, fps, (width,height))
     else:
         out = None
 
@@ -152,7 +153,8 @@ def infer_on_stream(args, client):
     min_frame_count = 3 # minimum number of consecutive frame a pedestrian needs to be detected in 
     list_tracked_pedestrians = []
     list_trackers = [] # List of all trackers
-    set_id_pedestrians = set()
+    set_id_pedestrians = set() # Set of all the pedestrians in total
+    previous_count = 0
 
     #Loop until stream is over
     while cap.isOpened():
@@ -167,74 +169,69 @@ def infer_on_stream(args, client):
         p_frame = cv2.resize(frame, (net_input_shape[3], net_input_shape[2]))
         p_frame = p_frame.transpose((2,0,1))
         p_frame = p_frame.reshape(1, *p_frame.shape)
-        # TODO put this in the Network class
-        # TODO try padding instead of resize
 
         #Start asynchronous inference for specified request
         infer_network.async_inference(p_frame)
-        # TODO: see if I can grab another image while this one is getting processed
 
         # Wait for the result
         if infer_network.wait() == 0:
             # Get the results of the inference request
             result = infer_network.get_output()
 
-            # Update the frame to include detected bounding boxes
-            # frame = draw_boxes(frame, result, args, width, height)
-
             # Detect the objects in the new frame
             list_detections = infer_network.postprocess_output(result, width, height, args.prob_threshold)
 
             # Update the position of the tracked pedestrians
-            list_trackers, list_detections = updateTrackers(list_trackers, list_detections)        
-
-            # TODO ignore the detections that are only 3 frames young
-            # TODO get min iou changeable in the tracker    
+            list_trackers, list_detections, list_trackers_removed = updateTrackers(list_trackers, list_detections)        
 
             # Add the remaining detections as new tracked pedestrians
             for detection in list_detections:
                 x, y, w, h = detection
                 list_trackers.append(Tracker(x, y, w, h))
 
+            # Get the list of detected pedestrians (trackers detected in more than min_frame_count)
             list_tracked_pedestrians = [tracker for tracker in list_trackers if len(tracker.list_centroids) >= min_frame_count]
-            # print(len(list_trackers), print(len(list_tracked_pedestrians)))
-            # print([tracker.list_centroids for tracker in list_trackers])
 
             # Draw all the tracked vehicles in the current frame
             for pedestrian in list_tracked_pedestrians:
                 pedestrian.drawOnFrame(frame)
 
-            ### TODO: Extract any desired stats from the results ###
+            # --- Extract any desired stats from the results ---
 
             # Update the list of total pedestrians 
             set_id_pedestrians = set_id_pedestrians.union(set([p.id for p in list_tracked_pedestrians]))
             
+            # Number of pedestrians in the current frame
+            current_count = len(list_tracked_pedestrians)
 
-            ### TODO: Calculate and send relevant information on ###
-            ### current_count, total_count and duration to the MQTT server ###
-            ### Topic "person": keys of "count" and "total" ##
-
-            current_cout = len(list_tracked_pedestrians)
+            # Total of pedestrians detected since the beginning of the video
             total_count = len(set_id_pedestrians)
-            ### Topic "person/duration": key of "duration" ###
-            duration = [len(p.list_centroids) * 1/fps for p in list_tracked_pedestrians]
 
-            # Add , end='r'
-            # print(current_cout, total_count, duration)
+            # Publish the results in the person topic
+            if current_count != previous_count:
+                previous_count = current_count
+                client.publish("person", json.dumps({"count": current_count, "total":total_count}))
 
-            client.publish("person", json.dumps({"count": current_cout, "total":total_count}))
-            client.publish("person/duration", json.dumps({"duration": duration}))
+            # Get the total duration a person stayed in the frame when he/she leave the frame
+            duration_min = 10 # minimum frame a tracker needs to exist for its duration to be taken in account
+
+            if list_trackers_removed:
+                print("Pedestrian left the frame")
+                list_duration = [len(p.list_centroids) * 1/fps for p in list_trackers_removed if len(p.list_centroids) > duration_min]
+                if list_duration:
+                    duration = mean(list_duration)
+                    client.publish("person/duration", json.dumps({"duration": duration}))
+
+            # Send frame to the ffmpeg server
+            sys.stdout.buffer.write(frame)
+            sys.stdout.flush()
 
             # Write out the frame
             if image_flag:
                 cv2.imwrite('output_image.jpg', frame)
             else:
-                cv2.putText(frame, f"{current_cout} | {total_count} | {duration}", (15, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), thickness = 1)
+                # cv2.putText(frame, f"{current_cout} | {total_count}", (15, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), thickness = 1)
                 out.write(frame)
-
-        ### TODO: Send the frame to the FFMPEG server ###
-
-        ### TODO: Write an output image if `single_image_mode` ###
 
         # Break if escape key pressed
         if key_pressed == 27:
