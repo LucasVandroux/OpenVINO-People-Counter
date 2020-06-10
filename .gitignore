@@ -135,3 +135,6 @@ experiments/
 models/
 out.mp4
 output_image.jpg
+
+*.mp4
+*.ffm
