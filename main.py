@@ -145,12 +145,13 @@ def infer_on_stream(args, client):
         # Create a video writer for the output video
         # The second argument should be `cv2.VideoWriter_fourcc('M','J','P','G')`
         # on Mac, and `0x00000021` on Linux
-        out = cv2.VideoWriter('out.mp4', CODEC, fps, (width,height))
+        out = cv2.VideoWriter('out.mp4', cv2.VideoWriter_fourcc('M','J','P','G'), fps, (width,height))
+        min_frame_count = 3 # minimum number of consecutive frame a pedestrian needs to be detected in 
     else:
         out = None
+        min_frame_count = 0 # minimum number of consecutive frame a pedestrian needs to be detected in 
 
     # Initialize the list of tracked vehicle
-    min_frame_count = 3 # minimum number of consecutive frame a pedestrian needs to be detected in 
     list_tracked_pedestrians = []
     list_trackers = [] # List of all trackers
     set_id_pedestrians = set() # Set of all the pedestrians in total
@@ -216,7 +217,6 @@ def infer_on_stream(args, client):
             duration_min = 10 # minimum frame a tracker needs to exist for its duration to be taken in account
 
             if list_trackers_removed:
-                print("Pedestrian left the frame")
                 list_duration = [len(p.list_centroids) * 1/fps for p in list_trackers_removed if len(p.list_centroids) > duration_min]
                 if list_duration:
                     duration = mean(list_duration)
