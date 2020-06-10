@@ -212,5 +212,5 @@ def updateTrackers(list_trackers, list_detections, num_frames_keep_lost_tracker:
     # Create list of tracker that are going to be removed
     list_trackers_to_remove = [tracker for tracker in list_trackers if tracker.isLost() > num_frames_keep_lost_tracker]
 
-    print(len(list_trackers), len(list_trackers_to_keep), len(list_trackers_to_remove))
+    # print(len(list_trackers), len(list_trackers_to_keep), len(list_trackers_to_remove))
     return list_trackers_to_keep, list_detections, list_trackers_to_remove
