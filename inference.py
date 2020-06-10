@@ -124,7 +124,8 @@ class Network:
 
         for bbox in bboxes:
             conf = bbox[2]
-            if conf >= prob_threshold:
+            object_class = int(bbox[1]) # Using VOC labels --> 15 == person
+            if conf >= prob_threshold and object_class == 15:
                 xmin = int(bbox[3] * width)
                 ymin = int(bbox[4] * height)
                 xmax = int(bbox[5] * width)
