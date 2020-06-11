@@ -44,17 +44,6 @@ MQTT_HOST = IPADDRESS
 MQTT_PORT = 3001
 MQTT_KEEPALIVE_INTERVAL = 60
 
-# DEBUG
-# Get correct Video Codec
-if sys.platform == "linux" or sys.platform == "linux2":
-    CODEC = 0x00000021
-elif sys.platform == "darwin":
-    CODEC = cv2.VideoWriter_fourcc('M','J','P','G')
-else:
-    print("Unsupported OS.")
-    exit(1)
-
-
 def build_argparser():
     """
     Parse command line arguments.
@@ -89,24 +78,6 @@ def connect_mqtt():
 
     return client
 
-def draw_boxes(frame, result, args, width, height):
-    '''
-    Draw bounding boxes onto the frame.
-    '''
-    # The net outputs a blob with shape: [1, 1, N, 7], where N is the number of detected bounding boxes. For each detection, the description has the format: [image_id, label, conf, x_min, y_min, x_max, y_max]
-    bboxes = np.reshape(result, (-1, 7)).tolist()
-    # print(len(bboxes))
-
-    for bbox in bboxes:
-        conf = bbox[2]
-        if conf >= args.prob_threshold:
-            xmin = int(bbox[3] * width)
-            ymin = int(bbox[4] * height)
-            xmax = int(bbox[5] * width)
-            ymax = int(bbox[6] * height)
-            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 0, 255), 1)
-    return frame
-
 def infer_on_stream(args, client):
     """
     Initialize the inference network, stream video to network,
@@ -131,6 +102,9 @@ def infer_on_stream(args, client):
         args.input = 0
     elif args.input.endswith(('.jpg', '.bmp', '.png')):
         image_flag = True
+    # If the input file is not a video, stop the program
+    elif not args.endswith(('.mp4', '.avi')):
+        sys.exit(f"The format of the input file '{args.input.endswith}' is not supported.")
 
     #Handle the input stream
     cap = cv2.VideoCapture(args.input)
