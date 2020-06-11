@@ -116,10 +116,12 @@ class Network:
             list_detections (list[(x: int, y:int, w:int, h:int)]): list of bounding boxes of the 
                 detected objects. A bounding boxe is a tuple (x, y, w, h) where (x,y) are the   
                 coordinates of the top-left corner of the bounding box and w its width and h its 
-                 height in pixels.
+                height in pixels.
         """
         list_detections = []
-        # The net outputs a blob with shape: [1, 1, N, 7], where N is the number of detected bounding boxes. For each detection, the description has the format: [image_id, label, conf, x_min, y_min, x_max, y_max]
+        # The net outputs a blob with shape: [1, 1, N, 7], where N is the number of detected 
+        # bounding boxes. For each detection, the description has the format: 
+        # [image_id, label, conf, x_min, y_min, x_max, y_max]
         bboxes = np.reshape(network_output, (-1, 7)).tolist()
 
         for bbox in bboxes:
