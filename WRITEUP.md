@@ -35,7 +35,7 @@ Lighting, camera focal length, and image size, if too different from the data th
 
 ## Model Research
 
-As I am mainly working with PyTorch, I wanted to find a model made with PyTorch and convert it to ONNX before using the Model Optimizer. After searching on GitHub, I decided to use the SSD model from https://github.com/amdegroot/ssd.pytorch. I used the following command to convert the ONNX representation to an IR:
+As I am mainly working with PyTorch, I wanted to find a model made with PyTorch and convert it to ONNX before using the Model Optimizer. After searching on GitHub, I decided to use the SSD model from https://github.com/amdegroot/ssd.pytorch. My ONNX model can be found [here](https://github.com/LucasVandroux/ssd.pytorch/releases/tag/v0.9). Finally, I used the following command to convert the ONNX representation to an IR:
 
 ```
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo_onnx.py --input_model ssd.onnx --mean_values [123,117,104] --reverse_input_channels --input_shape [1,3,300,300]
