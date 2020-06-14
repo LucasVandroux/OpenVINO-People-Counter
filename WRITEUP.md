@@ -31,7 +31,15 @@ For example, in a shop, it might be interesting to know when people are entering
 
 ## Assess Effects on End-User Needs
 
-Lighting, camera focal length, and image size, if too different from the data the model was trained on, can damage the accuracy of the model. In the end, a reduction of the accuracy of the model makes the statistics extracted with it less precise and ultimately less useful. 
+Different parameters inside and outside the system can significantly influence the accuracy of the model.
+
+First, the lighting of the scene is essential, as changes in the brightness and the hue can modify the input image to a level that the model is not performing well anymore. Those effects usually can be mitigated by artificially reproducing those changes on the input images during training. Moreover, if one knows that the lighting of the scene will change over time (daylight/nightlight cycle, seasons), then one should include those changes in the training dataset. Artificially adding those lighting changes or adding more data with more diverse lighting conditions will improve the robustness of the model to those types of changes.
+
+Furthermore, one needs to choose the camera focal length carefully. Depending on how far the scene is happening from the camera, the subjects might be blurred. Therefore it will be harder for the model to detect it.
+
+Additionally, it is crucial to take care of the image size parameter. All the models usually can only detect objects above a specific size (traditionally given in pixels). Therefore, if the object is too small or too blurred (when scaling up the image), the model will have some trouble detecting it.
+
+Finally, all the different parameters mentioned above can reduce the accuracy of the model if not correctly accounted for. A reduction of the accuracy of the model makes the statistics extracted with it less precise and ultimately less useful. 
 
 ## Model Research
 
