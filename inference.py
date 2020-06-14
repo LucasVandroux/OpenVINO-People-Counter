@@ -83,13 +83,14 @@ class Network:
         """
         return self.network.inputs[self.input_blob].shape
 
-    def async_inference(self, image):
+    def async_inference(self, image, request_id=0):):
         """ Makes an asynchronous inference request, given an input image.
 
         Args:
             image (np.array): numpy array representing the image
+            request_id (int: 0): request id used to identify the request
         """
-        self.exec_network.start_async(request_id=0, 
+        self.exec_network.start_async(request_id=request_id, 
             inputs={self.input_blob: image})
 
     def wait(self):
