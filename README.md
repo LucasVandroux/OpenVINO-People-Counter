@@ -6,6 +6,10 @@
 
 ![people-counter-python](./images/people-counter-image.png)
 
+## How to use
+1. Works with `OpenVINO 2020.3`
+2. You can find the OpenVINO IR [here](https://github.com/LucasVandroux/ssd.pytorch/releases/tag/v0.9)
+
 ## What it Does
 
 The people counter application will demonstrate how to create a smart video IoT solution using Intel® hardware and software tools. The app will detect people in a designated area, providing the number of people in the frame, average duration of people in frame, and total count.
