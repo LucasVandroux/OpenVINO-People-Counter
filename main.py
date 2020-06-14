@@ -103,7 +103,7 @@ def infer_on_stream(args, client):
     elif args.input.endswith(('.jpg', '.bmp', '.png')):
         image_flag = True
     # If the input file is not a video, stop the program
-    elif not args.endswith(('.mp4', '.avi')):
+    elif not args.input.endswith(('.mp4', '.avi')):
         sys.exit(f"The format of the input file '{args.input.endswith}' is not supported.")
 
     #Handle the input stream
